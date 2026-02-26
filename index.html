@@ -16,7 +16,6 @@
   --card-w: min(92vw, 360px);
   --card-h: calc(var(--card-w) * 1.585);
   --radius: clamp(18px, 4.5vw, 26px);
-  --peek: 13px;
   --top-pad: max(env(safe-area-inset-top, 0px), 20px);
   --white: #f5f5f5;
   --ink:   #111111;
@@ -159,15 +158,14 @@ html, body {
   border-radius: var(--radius);
   background: var(--white);
   pointer-events: none;
-  /* rotation set by JS at load */
-  transform-origin: center top;
+  transform-origin: center center;
 }
-.ghost-1 { filter: brightness(0.70); box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
-.ghost-2 { filter: brightness(0.54); box-shadow: 0 6px 22px rgba(0,0,0,0.35); }
-.ghost-3 { filter: brightness(0.40); box-shadow: 0 5px 16px rgba(0,0,0,0.3); }
-.ghost-4 { filter: brightness(0.28); }
-.ghost-5 { filter: brightness(0.18); }
-.ghost-6 { filter: brightness(0.11); }
+.ghost-1 { filter: brightness(0.88); box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
+.ghost-2 { filter: brightness(0.76); box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
+.ghost-3 { filter: brightness(0.62); box-shadow: 0 3px 10px rgba(0,0,0,0.28); }
+.ghost-4 { filter: brightness(0.47); }
+.ghost-5 { filter: brightness(0.32); }
+.ghost-6 { filter: brightness(0.18); }
 
 /* ── Info button ── */
 #info-btn {
@@ -197,7 +195,6 @@ html, body {
 /* Counter */
 #counter {
   position: fixed;
-  top: calc(var(--top-pad) + 10px);
   right: max(env(safe-area-inset-right, 0px), 18px);
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 10px; font-weight: 400;
@@ -358,8 +355,10 @@ const STRATEGIES = [
 ];
 
 // ── Constants ────────────────────────────────────────────
-const PEEK       = 13;
-const NUM_GHOSTS = 6;
+const NUM_GHOSTS    = 6;
+// Vertical offsets for each ghost below the top card.
+// Gaps compress toward the back to simulate a thick deck.
+const STACK_OFFSETS = [4, 7, 10, 12, 14, 15];
 
 // ── Elements ─────────────────────────────────────────────
 const topCard   = document.getElementById('top-card');
@@ -370,8 +369,11 @@ const infoBtnEl = document.getElementById('info-btn');
 const ghosts    = [1,2,3,4,5,6].map(n => document.getElementById(`g${n}`));
 
 // ── Ghost rotations — fixed random angles, set once at load ──
-// Small angles (±2.5°) give a naturally placed, human feel
-const ghostAngles = ghosts.map(() => (Math.random() - 0.5) * 5);
+// Cards nearest the top are close to aligned; deeper cards are looser.
+const ghostAngles = ghosts.map((_, i) => {
+  const spread = i < 2 ? 1.2 : 2.0;
+  return (Math.random() - 0.5) * spread * 2;
+});
 
 // ── State ────────────────────────────────────────────────
 let deck      = shuffle([...STRATEGIES]);
@@ -383,20 +385,28 @@ let startY    = 0, dragY = 0, dragT = 0;
 
 function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
 
-// ── Layout: position ghosts below top card ───────────────
+// Minimum top value — set from resolved CSS before JS takes over
+let safeMinTop = 20;
+
+// ── Layout: centre the stack vertically, stack ghosts behind ─
 function layout() {
-  const r        = topCard.getBoundingClientRect();
-  const cardBottom = r.bottom;
   const screenH  = window.visualViewport?.height ?? window.innerHeight;
+  const cardH    = topCard.offsetHeight;
+  const stackH   = cardH + STACK_OFFSETS[STACK_OFFSETS.length - 1];
+  const idealTop = Math.round((screenH - stackH) / 2);
+  const cardTop  = Math.max(safeMinTop, idealTop);
+
+  topCard.style.top = `${cardTop}px`;
+
+  // Counter sits 10px below the top safe area, top-right
+  counterEl.style.top = `${safeMinTop + 10}px`;
 
   ghosts.forEach((g, i) => {
-    const topPx = cardBottom + i * PEEK;
-    g.style.top = `${topPx}px`;
+    g.style.top    = `${cardTop + STACK_OFFSETS[i]}px`;
     g.style.zIndex = NUM_GHOSTS - i;
     g.style.setProperty('--angle', `${ghostAngles[i]}deg`);
     g.style.transform = `translateX(-50%) rotate(${ghostAngles[i]}deg)`;
   });
-
 }
 
 // ── Update strategy text & counter ──────────────────────
@@ -436,23 +446,26 @@ function hideInfo(thenAdvance) {
 function advance() {
   if (busy) return;
   busy = true;
-  topCard.classList.remove('idle', 'lifted');
-  topCard.style.cssText = '';
 
+  // Read position before touching any styles
+  const cardTop = parseFloat(topCard.style.top);
+
+  topCard.classList.remove('idle', 'lifted');
+  topCard.style.transform = '';
+  topCard.style.transition = '';
   topCard.classList.add('fly-up');
 
-  // Slide ghost stack up one step
-  const r = topCard.getBoundingClientRect();
+  // Shift ghost stack up: ghost[0] → card position, rest step forward
+  const advanceOffsets = [0, ...STACK_OFFSETS.slice(0, NUM_GHOSTS - 1)];
   ghosts.forEach((g, i) => {
-    g.style.transition = 'top 0.28s cubic-bezier(0.4, 0, 0.2, 1)';
-    g.style.top = i === 0
-      ? `${r.bottom - r.height}px`
-      : `${r.bottom + (i - 1) * PEEK}px`;
+    g.style.transition = 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    g.style.top = `${cardTop + advanceOffsets[i]}px`;
   });
 
   setTimeout(() => {
     topCard.classList.remove('fly-up');
-    topCard.style.cssText = '';
+    topCard.style.transform = '';
+    topCard.style.transition = '';
     idx++;
     if (idx > 0 && idx % deck.length === 0) deck = shuffle([...STRATEGIES]);
     showCard(true);
@@ -539,6 +552,9 @@ infoBtnEl.addEventListener('click', () => {
 
 // ── Boot ─────────────────────────────────────────────────
 window.addEventListener('load', () => {
+  // Capture resolved safe-area top before JS overrides style.top
+  safeMinTop = parseFloat(getComputedStyle(topCard).top) || 20;
+
   // Hide card and ghosts behind the loading overlay
   topCard.style.opacity = '0';
   ghosts.forEach(g => { g.style.opacity = '0'; });
