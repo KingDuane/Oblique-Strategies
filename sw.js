@@ -1,4 +1,4 @@
-const CACHE = 'oblique-v8';
+const CACHE = 'oblique-v10';
 const ASSETS = ['/', '/index.html', '/manifest.json',
                 '/favicon.svg', '/favicon.ico', '/favicon-96x96.png',
                 '/apple-touch-icon.png',

@@ -266,6 +266,31 @@ html, body {
     0 4px 10px rgba(0,0,0,0.2) !important;
 }
 
+/* ── Desktop: card rotates to landscape ── */
+@media (min-width: 700px) {
+  :root {
+    --card-w: min(48vw, 480px);
+    --card-h: calc(var(--card-w) / 1.585);
+    --radius: 20px;
+  }
+  /* Text now reads horizontally — no rotation needed */
+  #strategy {
+    transform: none;
+    width: 100%;
+    padding: 0 44px;
+    font-size: 17px;
+  }
+  #info-text {
+    transform: none;
+    width: 100%;
+    padding: 0 36px;
+    font-size: 14px;
+  }
+  #info-text .info-heading {
+    font-size: 13px;
+  }
+}
+
 /* Loading */
 #loading {
   position: fixed; inset: 0;
@@ -556,13 +581,6 @@ function pMove(e) {
     const fade = Math.max(0.3, 1 - Math.abs(dx) / 160);
     topCard.style.transform = `translateX(calc(-50% + ${dx}px)) rotate(${tilt}deg)`;
     stratEl.style.opacity = fade;
-  } else if (dragAxis === 'v' && !showingInfo) {
-    dragY = dy;
-    const clampY = Math.min(dy, 20);
-    const tilt = clampY * -0.014;
-    const fade = Math.max(0.25, 1 - Math.max(0, -clampY) / 100);
-    topCard.style.transform = `translateX(-50%) translateY(${clampY}px) rotate(${tilt}deg)`;
-    stratEl.style.opacity = fade;
   }
 }
 function pUp(e) {
@@ -573,19 +591,14 @@ function pUp(e) {
   stratEl.style.opacity = '';
   const elapsed = Math.max(1, Date.now() - dragT);
   const velX = dragX / elapsed;
-  const velY = dragY / elapsed;
   if (dragAxis === 'h') {
     didDrag = true;
     if (dragX < -55 || velX < -0.4)      advance();
     else if (dragX > 55 || velX > 0.4)   undo();
     else { topCard.style.transform = 'translateX(-50%)'; topCard.classList.add('idle'); }
-  } else if (dragAxis === 'v') {
-    didDrag = true;
-    if (dragY < -55 || velY < -0.35) {
-      if (showingInfo) hideInfo(true); else advance();
-    } else { topCard.style.transform = 'translateX(-50%)'; topCard.classList.add('idle'); }
   } else {
     topCard.style.transform = 'translateX(-50%)';
+    if (dragAxis) topCard.classList.add('idle');
   }
   dragX = 0; dragY = 0; dragAxis = null;
 }
@@ -595,16 +608,13 @@ topCard.addEventListener('click', () => {
   if (busy) return;
   if (didDrag) { didDrag = false; return; }
   if (showingInfo) hideInfo(false);
-  else advance();
+  else advance('right');
 });
 
 // Keyboard — arrow direction matches card exit direction
 document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight' || e.key === ' ') {
     if (showingInfo) hideInfo(true); else advance('right');
-  }
-  if (e.key === 'ArrowUp') {
-    if (showingInfo) hideInfo(true); else advance('left');
   }
   if (e.key === 'ArrowLeft' || e.key === 'z' || e.key === 'Z') undo('left');
   if (e.key === 'i' || e.key === 'I') showInfo();
