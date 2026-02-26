@@ -6,7 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon.svg">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="theme-color" content="#1a1a1a">
 <title>Oblique Strategies</title>
 <style>
@@ -216,6 +219,10 @@ html, body {
   from { transform: translateX(calc(-50% - 48px)); opacity: 0; }
   to   { transform: translateX(-50%); opacity: 1; }
 }
+@keyframes enterRight {
+  from { transform: translateX(calc(-50% + 48px)); opacity: 0; }
+  to   { transform: translateX(-50%); opacity: 1; }
+}
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -244,7 +251,8 @@ html, body {
 
 .exit-left  { animation: exitLeft  0.36s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
 .exit-right { animation: exitRight 0.36s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
-.enter-left { animation: enterLeft 0.32s cubic-bezier(0.2, 0, 0.3, 1) forwards; }
+.enter-left  { animation: enterLeft  0.32s cubic-bezier(0.2, 0, 0.3, 1) forwards; }
+.enter-right { animation: enterRight 0.32s cubic-bezier(0.2, 0, 0.3, 1) forwards; }
 .fade-in    { animation: fadeIn    0.22s ease forwards; }
 .idle       { animation: idleFloat 4s ease-in-out infinite; }
 .drop-in    { animation: dropIn    0.66s linear forwards; }
@@ -460,7 +468,8 @@ function hideInfo(thenAdvance) {
 }
 
 // ── Advance to next card ─────────────────────────────────
-function advance() {
+// dir: 'left' for swipe/click (card goes with drag), 'right' for keyboard arrow
+function advance(dir = 'left') {
   if (busy) return;
   busy = true;
 
@@ -471,7 +480,7 @@ function advance() {
   topCard.classList.remove('idle', 'lifted');
   topCard.style.transform = '';
   topCard.style.transition = '';
-  topCard.classList.add('exit-left');
+  topCard.classList.add(`exit-${dir}`);
 
   // Ghost stack shifts up while card exits
   const advanceOffsets = [0, ...STACK_OFFSETS.slice(0, NUM_GHOSTS - 1)];
@@ -481,7 +490,7 @@ function advance() {
   });
 
   setTimeout(() => {
-    topCard.classList.remove('exit-left');
+    topCard.classList.remove(`exit-${dir}`);
     topCard.style.transform = '';
     topCard.style.transition = '';
     idx++;
@@ -494,17 +503,18 @@ function advance() {
 }
 
 // ── Undo — restore previous card ────────────────────────
-function undo() {
+// dir: 'right' for swipe-right, 'left' for keyboard left-arrow
+function undo(dir = 'right') {
   if (busy || HISTORY.length === 0) return;
   busy = true;
 
   topCard.classList.remove('idle', 'lifted');
   topCard.style.transform = '';
   topCard.style.transition = '';
-  topCard.classList.add('exit-right');
+  topCard.classList.add(`exit-${dir}`);
 
   setTimeout(() => {
-    topCard.classList.remove('exit-right');
+    topCard.classList.remove(`exit-${dir}`);
     topCard.style.transform = '';
     topCard.style.transition = '';
     const prev = HISTORY.pop();
@@ -513,34 +523,30 @@ function undo() {
     const rem = deck.length - (idx % deck.length);
     counterEl.textContent = `${rem}\u2009/\u2009${deck.length}`;
     layout();
-    enterCard('enter-left');
+    // Enter from the opposite side: if card exited right, new card comes from left
+    enterCard(dir === 'right' ? 'enter-left' : 'enter-right');
   }, 340);
 }
 
-// ── Drag ─────────────────────────────────────────────────
-topCard.addEventListener('mousedown',  pDown);
-topCard.addEventListener('touchstart', pDown, { passive: true });
-document.addEventListener('mousemove', pMove);
-document.addEventListener('touchmove', pMove, { passive: true });
-document.addEventListener('mouseup',   pUp);
-document.addEventListener('touchend',  pUp);
+// ── Drag — Pointer Events (unifies touch + mouse, fires once each) ──
+topCard.addEventListener('pointerdown', pDown);
+document.addEventListener('pointermove', pMove);
+document.addEventListener('pointerup',   pUp);
+document.addEventListener('pointercancel', pUp);
 
 function pDown(e) {
-  if (busy) return;
+  if (!e.isPrimary || busy) return;
   dragging = true;
   dragX = 0; dragY = 0; dragAxis = null; didDrag = false;
-  const pt = e.touches ? e.touches[0] : e;
-  startX = pt.clientX; startY = pt.clientY; dragT = Date.now();
+  startX = e.clientX; startY = e.clientY; dragT = Date.now();
   topCard.classList.remove('idle');
   topCard.classList.add('lifted');
   topCard.style.transition = 'none';
 }
 function pMove(e) {
-  if (!dragging) return;
-  const pt = e.touches ? e.touches[0] : e;
-  const dx = pt.clientX - startX;
-  const dy = pt.clientY - startY;
-  // Lock axis on first significant movement
+  if (!e.isPrimary || !dragging) return;
+  const dx = e.clientX - startX;
+  const dy = e.clientY - startY;
   if (!dragAxis && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
     dragAxis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
   }
@@ -559,8 +565,8 @@ function pMove(e) {
     stratEl.style.opacity = fade;
   }
 }
-function pUp() {
-  if (!dragging) return;
+function pUp(e) {
+  if (!e.isPrimary || !dragging) return;
   dragging = false;
   topCard.classList.remove('lifted');
   topCard.style.transition = '';
@@ -592,12 +598,15 @@ topCard.addEventListener('click', () => {
   else advance();
 });
 
-// Keyboard
+// Keyboard — arrow direction matches card exit direction
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowUp') {
-    if (showingInfo) hideInfo(true); else advance();
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    if (showingInfo) hideInfo(true); else advance('right');
   }
-  if (e.key === 'ArrowLeft' || e.key === 'z' || e.key === 'Z') undo();
+  if (e.key === 'ArrowUp') {
+    if (showingInfo) hideInfo(true); else advance('left');
+  }
+  if (e.key === 'ArrowLeft' || e.key === 'z' || e.key === 'Z') undo('left');
   if (e.key === 'i' || e.key === 'I') showInfo();
 });
 

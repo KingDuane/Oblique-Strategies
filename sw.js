@@ -1,6 +1,8 @@
-const CACHE = 'oblique-v6';
+const CACHE = 'oblique-v8';
 const ASSETS = ['/', '/index.html', '/manifest.json',
-                '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png'];
+                '/favicon.svg', '/favicon.ico', '/favicon-96x96.png',
+                '/apple-touch-icon.png',
+                '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', e =>
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)))
