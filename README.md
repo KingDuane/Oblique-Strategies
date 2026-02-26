@@ -23,4 +23,8 @@
 
 A digital implementation of Brian Eno & Peter Schmidt's *Oblique Strategies* card deck. Tap to draw a new card.
 
-**[oblique.moonshot.ooo](https://oblique.moonshot.ooo)** *(coming soon)*
+**[oblique.moonshot.ooo](https://oblique.moonshot.ooo)**
+
+`→` `Space` — next
+`←` `Z` — previous
+`I` — show info
