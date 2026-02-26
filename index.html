@@ -204,14 +204,21 @@ html, body {
 }
 
 /* ── Animations ── */
-@keyframes flyUp {
-  0%   { transform: translateX(-50%) translateY(0) rotate(0deg); opacity: 1; }
-  18%  { transform: translateX(-50%) translateY(-18px) rotate(-0.8deg); opacity: 1; }
-  100% { transform: translateX(-50%) translateY(-130%) rotate(-3deg); opacity: 0; }
+@keyframes exitLeft {
+  0%   { transform: translateX(-50%) rotate(0deg); opacity: 1; }
+  100% { transform: translateX(calc(-50% - 110vw)) rotate(-8deg); opacity: 0; }
 }
-@keyframes riseUp {
-  0%   { transform: translateX(-50%) translateY(28px); opacity: 0.35; }
-  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+@keyframes exitRight {
+  0%   { transform: translateX(-50%) rotate(0deg); opacity: 1; }
+  100% { transform: translateX(calc(-50% + 110vw)) rotate(8deg); opacity: 0; }
+}
+@keyframes enterLeft {
+  from { transform: translateX(calc(-50% - 48px)); opacity: 0; }
+  to   { transform: translateX(-50%); opacity: 1; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 @keyframes idleFloat {
   0%, 100% { transform: translateX(-50%) translateY(0); }
@@ -235,8 +242,10 @@ html, body {
   to   { transform: translateX(-50%) translateY(0)    rotate(var(--angle, 0deg)); opacity: 1; }
 }
 
-.fly-up     { animation: flyUp     0.42s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
-.rise-up    { animation: riseUp    0.44s cubic-bezier(0.34, 1.4, 0.64, 1) forwards; }
+.exit-left  { animation: exitLeft  0.36s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
+.exit-right { animation: exitRight 0.36s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
+.enter-left { animation: enterLeft 0.32s cubic-bezier(0.2, 0, 0.3, 1) forwards; }
+.fade-in    { animation: fadeIn    0.22s ease forwards; }
 .idle       { animation: idleFloat 4s ease-in-out infinite; }
 .drop-in    { animation: dropIn    0.66s linear forwards; }
 .ghost-rise { animation: ghostRise 0.38s cubic-bezier(0.2, 0, 0.3, 1) forwards; }
@@ -380,7 +389,11 @@ let idx       = 0;
 let busy      = false;
 let showingInfo = false;
 let dragging  = false;
-let startY    = 0, dragY = 0, dragT = 0;
+let startX    = 0, startY = 0;
+let dragX     = 0, dragY  = 0, dragT = 0;
+let dragAxis  = null; // 'h' | 'v' | null
+let didDrag   = false;
+const HISTORY = []; // { text, idx } — capped at 10 for undo
 
 function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
 
@@ -409,19 +422,21 @@ function layout() {
 }
 
 // ── Update strategy text & counter ──────────────────────
-function showCard(animate) {
+function showCard() {
   stratEl.textContent = deck[idx % deck.length];
   const rem = deck.length - (idx % deck.length);
   counterEl.textContent = `${rem}\u2009/\u2009${deck.length}`;
-  if (animate) {
-    topCard.classList.remove('rise-up');
-    void topCard.offsetWidth;
-    topCard.classList.add('rise-up');
-    setTimeout(() => {
-      topCard.classList.remove('rise-up');
-      topCard.style.opacity = '';
-    }, 460);
-  }
+}
+
+// ── Animate card entrance ────────────────────────────────
+function enterCard(cls) {
+  topCard.style.opacity = '0';
+  topCard.classList.add(cls);
+  topCard.addEventListener('animationend', () => {
+    topCard.classList.remove(cls);
+    topCard.style.opacity = '';
+    setTimeout(() => { topCard.classList.add('idle'); busy = false; }, 80);
+  }, { once: true });
 }
 
 // ── Flip card to show info back ──────────────────────────
@@ -449,15 +464,16 @@ function advance() {
   if (busy) return;
   busy = true;
 
-  // Read position before touching any styles
-  const cardTop = parseFloat(topCard.style.top);
+  HISTORY.push({ text: stratEl.textContent, idx });
+  if (HISTORY.length > 10) HISTORY.shift();
 
+  const cardTop = parseFloat(topCard.style.top);
   topCard.classList.remove('idle', 'lifted');
   topCard.style.transform = '';
   topCard.style.transition = '';
-  topCard.classList.add('fly-up');
+  topCard.classList.add('exit-left');
 
-  // Shift ghost stack up: ghost[0] → card position, rest step forward
+  // Ghost stack shifts up while card exits
   const advanceOffsets = [0, ...STACK_OFFSETS.slice(0, NUM_GHOSTS - 1)];
   ghosts.forEach((g, i) => {
     g.style.transition = 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -465,17 +481,40 @@ function advance() {
   });
 
   setTimeout(() => {
-    topCard.classList.remove('fly-up');
+    topCard.classList.remove('exit-left');
     topCard.style.transform = '';
     topCard.style.transition = '';
-    topCard.style.opacity = '0'; // bridge: hide the 1-frame snap before rise-up
     idx++;
     if (idx > 0 && idx % deck.length === 0) deck = shuffle([...STRATEGIES]);
-    showCard(true); // rise-up animation overrides opacity during its run
+    showCard();
     ghosts.forEach(g => { g.style.transition = ''; });
     layout();
-    setTimeout(() => { topCard.classList.add('idle'); busy = false; }, 480);
-  }, 420);
+    enterCard('fade-in');
+  }, 340);
+}
+
+// ── Undo — restore previous card ────────────────────────
+function undo() {
+  if (busy || HISTORY.length === 0) return;
+  busy = true;
+
+  topCard.classList.remove('idle', 'lifted');
+  topCard.style.transform = '';
+  topCard.style.transition = '';
+  topCard.classList.add('exit-right');
+
+  setTimeout(() => {
+    topCard.classList.remove('exit-right');
+    topCard.style.transform = '';
+    topCard.style.transition = '';
+    const prev = HISTORY.pop();
+    idx = prev.idx;
+    stratEl.textContent = prev.text;
+    const rem = deck.length - (idx % deck.length);
+    counterEl.textContent = `${rem}\u2009/\u2009${deck.length}`;
+    layout();
+    enterCard('enter-left');
+  }, 340);
 }
 
 // ── Drag ─────────────────────────────────────────────────
@@ -488,9 +527,10 @@ document.addEventListener('touchend',  pUp);
 
 function pDown(e) {
   if (busy) return;
-  dragging = true; dragY = 0;
+  dragging = true;
+  dragX = 0; dragY = 0; dragAxis = null; didDrag = false;
   const pt = e.touches ? e.touches[0] : e;
-  startY = pt.clientY; dragT = Date.now();
+  startX = pt.clientX; startY = pt.clientY; dragT = Date.now();
   topCard.classList.remove('idle');
   topCard.classList.add('lifted');
   topCard.style.transition = 'none';
@@ -498,12 +538,26 @@ function pDown(e) {
 function pMove(e) {
   if (!dragging) return;
   const pt = e.touches ? e.touches[0] : e;
-  dragY = pt.clientY - startY;
-  const dy  = Math.min(dragY, 20);
-  const tilt = dy * -0.014;
-  const fade = Math.max(0.25, 1 - Math.max(0, -dy) / 100);
-  topCard.style.transform = `translateX(-50%) translateY(${dy}px) rotate(${tilt}deg)`;
-  stratEl.style.opacity = fade;
+  const dx = pt.clientX - startX;
+  const dy = pt.clientY - startY;
+  // Lock axis on first significant movement
+  if (!dragAxis && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    dragAxis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+  }
+  if (dragAxis === 'h') {
+    dragX = dx;
+    const tilt = dx * 0.018;
+    const fade = Math.max(0.3, 1 - Math.abs(dx) / 160);
+    topCard.style.transform = `translateX(calc(-50% + ${dx}px)) rotate(${tilt}deg)`;
+    stratEl.style.opacity = fade;
+  } else if (dragAxis === 'v' && !showingInfo) {
+    dragY = dy;
+    const clampY = Math.min(dy, 20);
+    const tilt = clampY * -0.014;
+    const fade = Math.max(0.25, 1 - Math.max(0, -clampY) / 100);
+    topCard.style.transform = `translateX(-50%) translateY(${clampY}px) rotate(${tilt}deg)`;
+    stratEl.style.opacity = fade;
+  }
 }
 function pUp() {
   if (!dragging) return;
@@ -511,36 +565,39 @@ function pUp() {
   topCard.classList.remove('lifted');
   topCard.style.transition = '';
   stratEl.style.opacity = '';
-  const vel = dragY / (Date.now() - dragT);
-  if (dragY < -55 || vel < -0.35) {
-    // Swiped up — if info card showing, flip back then advance; else advance
-    if (showingInfo) {
-      hideInfo(true);
-    } else {
-      advance();
-    }
+  const elapsed = Math.max(1, Date.now() - dragT);
+  const velX = dragX / elapsed;
+  const velY = dragY / elapsed;
+  if (dragAxis === 'h') {
+    didDrag = true;
+    if (dragX < -55 || velX < -0.4)      advance();
+    else if (dragX > 55 || velX > 0.4)   undo();
+    else { topCard.style.transform = 'translateX(-50%)'; topCard.classList.add('idle'); }
+  } else if (dragAxis === 'v') {
+    didDrag = true;
+    if (dragY < -55 || velY < -0.35) {
+      if (showingInfo) hideInfo(true); else advance();
+    } else { topCard.style.transform = 'translateX(-50%)'; topCard.classList.add('idle'); }
   } else {
     topCard.style.transform = 'translateX(-50%)';
-    topCard.classList.add('idle');
   }
-  dragY = 0;
+  dragX = 0; dragY = 0; dragAxis = null;
 }
 
-// Tap — if showing info, flip back; else advance
+// Tap — advance (unless it was a drag that didn't meet threshold)
 topCard.addEventListener('click', () => {
   if (busy) return;
-  if (showingInfo) {
-    hideInfo(false);
-  } else if (Math.abs(dragY) < 6) {
-    advance();
-  }
+  if (didDrag) { didDrag = false; return; }
+  if (showingInfo) hideInfo(false);
+  else advance();
 });
 
 // Keyboard
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowUp' || e.key === ' ' || e.key === 'ArrowRight') {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowUp') {
     if (showingInfo) hideInfo(true); else advance();
   }
+  if (e.key === 'ArrowLeft' || e.key === 'z' || e.key === 'Z') undo();
   if (e.key === 'i' || e.key === 'I') showInfo();
 });
 
@@ -560,7 +617,7 @@ window.addEventListener('load', () => {
   ghosts.forEach(g => { g.style.opacity = '0'; });
 
   layout();
-  showCard(false);
+  showCard();
   window.addEventListener('resize', layout);
   window.visualViewport?.addEventListener('resize', layout);
 
