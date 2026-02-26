@@ -33,6 +33,15 @@ html, body {
   user-select: none;
 }
 
+/* Full-bleed dark backdrop — extends beyond the viewport so Safari's
+   rubber-band overscroll never reveals a white gap at top or bottom */
+#bg {
+  position: fixed;
+  inset: -100px;
+  background: var(--bg);
+  z-index: -1;
+}
+
 /* ── Top card ── */
 #top-card {
   position: fixed;
@@ -240,6 +249,7 @@ html, body {
 </head>
 <body>
 
+<div id="bg"></div>
 <div id="loading">oblique strategies</div>
 
 <!-- Ghost stack (deepest first so shallower ones paint on top) -->
@@ -358,7 +368,7 @@ function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
 function layout() {
   const r        = topCard.getBoundingClientRect();
   const cardBottom = r.bottom;
-  const screenH  = window.innerHeight;
+  const screenH  = window.visualViewport?.height ?? window.innerHeight;
 
   ghosts.forEach((g, i) => {
     const topPx = cardBottom + i * PEEK;
@@ -519,6 +529,7 @@ window.addEventListener('load', () => {
   layout();
   showCard(false);
   window.addEventListener('resize', layout);
+  window.visualViewport?.addEventListener('resize', layout);
 
   const loading = document.getElementById('loading');
   setTimeout(() => {
