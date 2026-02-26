@@ -222,9 +222,28 @@ html, body {
   50%       { transform: translateX(-50%) translateY(-3px); }
 }
 
-.fly-up  { animation: flyUp  0.42s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
-.rise-up { animation: riseUp 0.44s cubic-bezier(0.34, 1.4, 0.64, 1) forwards; }
-.idle    { animation: idleFloat 4s ease-in-out infinite; }
+/* Spring entrance — drop from above with damped oscillation */
+@keyframes dropIn {
+  0%   { transform: translateX(-50%) translateY(-72px); opacity: 0; }
+  25%  { opacity: 1; }
+  56%  { transform: translateX(-50%) translateY(9px);  opacity: 1; }
+  71%  { transform: translateX(-50%) translateY(-4px); opacity: 1; }
+  83%  { transform: translateX(-50%) translateY(2px);  opacity: 1; }
+  92%  { transform: translateX(-50%) translateY(-1px); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+
+/* Ghost entrance — rise from below */
+@keyframes ghostRise {
+  from { transform: translateX(-50%) translateY(20px) rotate(var(--angle, 0deg)); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0)    rotate(var(--angle, 0deg)); opacity: 1; }
+}
+
+.fly-up     { animation: flyUp     0.42s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
+.rise-up    { animation: riseUp    0.44s cubic-bezier(0.34, 1.4, 0.64, 1) forwards; }
+.idle       { animation: idleFloat 4s ease-in-out infinite; }
+.drop-in    { animation: dropIn    0.66s linear forwards; }
+.ghost-rise { animation: ghostRise 0.38s cubic-bezier(0.2, 0, 0.3, 1) forwards; }
 
 .lifted .card-face {
   box-shadow:
@@ -243,7 +262,7 @@ html, body {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 10px; letter-spacing: 0.24em;
   color: rgba(255,255,255,0.18);
-  transition: opacity 0.7s ease;
+  transition: opacity 0.35s ease;
 }
 #loading.fade { opacity: 0; pointer-events: none; }
 </style>
@@ -251,7 +270,7 @@ html, body {
 <body>
 
 <div id="bg"></div>
-<div id="loading">oblique strategies</div>
+<div id="loading"></div>
 
 <!-- Ghost stack (deepest first so shallower ones paint on top) -->
 <div class="ghost ghost-6" id="g6"></div>
@@ -374,7 +393,7 @@ function layout() {
     const topPx = cardBottom + i * PEEK;
     g.style.top = `${topPx}px`;
     g.style.zIndex = NUM_GHOSTS - i;
-    // Apply fixed random rotation centred on the card's top edge (where it peeks)
+    g.style.setProperty('--angle', `${ghostAngles[i]}deg`);
     g.style.transform = `translateX(-50%) rotate(${ghostAngles[i]}deg)`;
   });
 
@@ -520,17 +539,40 @@ infoBtnEl.addEventListener('click', () => {
 
 // ── Boot ─────────────────────────────────────────────────
 window.addEventListener('load', () => {
+  // Hide card and ghosts behind the loading overlay
+  topCard.style.opacity = '0';
+  ghosts.forEach(g => { g.style.opacity = '0'; });
+
   layout();
   showCard(false);
   window.addEventListener('resize', layout);
   window.visualViewport?.addEventListener('resize', layout);
 
   const loading = document.getElementById('loading');
+
   setTimeout(() => {
+    // Fade out the dark overlay
     loading.classList.add('fade');
-    setTimeout(() => loading.remove(), 750);
-    setTimeout(() => topCard.classList.add('idle'), 1000);
-  }, 450);
+    setTimeout(() => loading.remove(), 400);
+
+    // Spring-drop the top card in
+    topCard.style.opacity = '';
+    topCard.classList.add('drop-in');
+    topCard.addEventListener('animationend', () => {
+      topCard.classList.remove('drop-in');
+      setTimeout(() => topCard.classList.add('idle'), 80);
+    }, { once: true });
+
+    // Stagger ghost cards rising from below
+    ghosts.forEach((g, i) => {
+      setTimeout(() => {
+        g.style.opacity = '';
+        g.classList.add('ghost-rise');
+        g.addEventListener('animationend', () =>
+          g.classList.remove('ghost-rise'), { once: true });
+      }, i * 65);
+    });
+  }, 700);
 });
 </script>
 <script>
