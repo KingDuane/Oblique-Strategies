@@ -172,9 +172,10 @@ html, body {
 /* ── Info button ── */
 #info-btn {
   position: fixed;
+  bottom: max(env(safe-area-inset-bottom, 0px) + 20px, 28px);
   left: 50%;
   transform: translateX(-50%);
-  width: 28px; height: 28px;
+  width: 36px; height: 36px;
   border-radius: 50%;
   border: 1.5px solid rgba(255,255,255,0.18);
   background: transparent;
@@ -378,12 +379,6 @@ function layout() {
     g.style.transform = `translateX(-50%) rotate(${ghostAngles[i]}deg)`;
   });
 
-  // Info button: centred in space below last ghost peek
-  const lastEdge = cardBottom + NUM_GHOSTS * PEEK;
-  const midY = lastEdge + (screenH - lastEdge) / 2;
-  infoBtnEl.style.top  = `${midY - 14}px`;
-  infoBtnEl.style.left = '50%';
-  infoBtnEl.style.transform = 'translateX(-50%)';
 }
 
 // ── Update strategy text & counter ──────────────────────
