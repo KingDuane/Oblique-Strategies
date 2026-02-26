@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Generate Oblique Strategies Icons</title>
+<style>
+  body { font-family: sans-serif; background: #f0f0f0; padding: 2rem; }
+  h1 { margin-bottom: 1.5rem; }
+  .icon-set { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start; }
+  .icon-block { text-align: center; }
+  canvas { display: block; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.3); }
+  a.dl { display: inline-block; margin-top: .75rem; padding: .5rem 1.25rem;
+         background: #1a1a1a; color: #fff; border-radius: 6px;
+         text-decoration: none; font-size: .9rem; }
+  a.dl:hover { background: #333; }
+  p.note { margin-top: 2rem; font-size: .85rem; color: #555; max-width: 480px; }
+</style>
+</head>
+<body>
+<h1>Oblique Strategies — Icon Generator</h1>
+<p>Click a download button to save the PNG, then place the file in the <code>icons/</code> folder.</p>
+
+<div class="icon-set">
+  <div class="icon-block">
+    <canvas id="c192" width="192" height="192"></canvas>
+    <a class="dl" id="dl192" download="icon-192.png">Download icon-192.png</a>
+  </div>
+  <div class="icon-block">
+    <canvas id="c512" width="512" height="512"></canvas>
+    <a class="dl" id="dl512" download="icon-512.png">Download icon-512.png</a>
+  </div>
+</div>
+
+<p class="note">
+  After downloading both PNGs, open <code>manifest.json</code> and add the two PNG entries
+  to the <code>icons</code> array as described in the project plan.
+</p>
+
+<script>
+function drawIcon(canvas) {
+  const size = canvas.width;
+  const ctx = canvas.getContext('2d');
+  const radius = size * (96 / 512);
+
+  // Rounded-rect background
+  ctx.beginPath();
+  ctx.moveTo(radius, 0);
+  ctx.lineTo(size - radius, 0);
+  ctx.quadraticCurveTo(size, 0, size, radius);
+  ctx.lineTo(size, size - radius);
+  ctx.quadraticCurveTo(size, size, size - radius, size);
+  ctx.lineTo(radius, size);
+  ctx.quadraticCurveTo(0, size, 0, size - radius);
+  ctx.lineTo(0, radius);
+  ctx.quadraticCurveTo(0, 0, radius, 0);
+  ctx.closePath();
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fill();
+
+  // "OS" text
+  const fontSize = Math.round(size * (220 / 512));
+  ctx.font = `bold ${fontSize}px Georgia, serif`;
+  ctx.fillStyle = '#f5f5f5';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('OS', size / 2, size * (310 / 512));
+}
+
+const c192 = document.getElementById('c192');
+const c512 = document.getElementById('c512');
+drawIcon(c192);
+drawIcon(c512);
+
+document.getElementById('dl192').href = c192.toDataURL('image/png');
+document.getElementById('dl512').href = c512.toDataURL('image/png');
+</script>
+</body>
+</html>

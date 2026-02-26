@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<meta name="theme-color" content="#1a1a1a">
+<title>Oblique Strategies</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --card-w: min(92vw, 360px);
+  --card-h: calc(var(--card-w) * 1.585);
+  --radius: clamp(18px, 4.5vw, 26px);
+  --peek: 13px;
+  --top-pad: max(env(safe-area-inset-top, 0px), 20px);
+  --white: #f5f5f5;
+  --ink:   #111111;
+  --bg:    #1a1a1a;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* ── Top card ── */
+#top-card {
+  position: fixed;
+  top: var(--top-pad);
+  left: 50%;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: var(--radius);
+  z-index: 20;
+  cursor: grab;
+  will-change: transform;
+  transform: translateX(-50%);
+  /* 3-D flip container */
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+#top-card:active { cursor: grabbing; }
+
+/* Card faces share the same footprint */
+.card-face {
+  position: absolute; inset: 0;
+  border-radius: var(--radius);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.5) inset,
+    0 24px 60px rgba(0,0,0,0.55),
+    0 8px 20px rgba(0,0,0,0.25),
+    0 2px 5px rgba(0,0,0,0.15);
+}
+
+/* Front face — shows strategy text */
+#face-front {
+  transform: rotateY(0deg);
+}
+
+/* Back face — blank, rotated 180° so it starts hidden */
+#face-back {
+  transform: rotateY(180deg);
+  /* Slightly warmer blank to feel like card stock */
+  background: #f0f0f0;
+}
+
+/* The flip wrapper rotates the whole card */
+#card-inner {
+  position: absolute; inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.52s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: var(--radius);
+}
+#card-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+/* Strategy text */
+#strategy {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  font-size: clamp(12px, 3vw, 15px);
+  line-height: 1.65;
+  letter-spacing: 0.005em;
+  color: var(--ink);
+  text-align: center;
+  transform: rotate(-90deg);
+  width: var(--card-h);
+  padding: 0 48px;
+  pointer-events: none;
+  transition: opacity 0.08s;
+}
+
+/* Info text on back face — rotated to read landscape */
+#info-text {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  font-size: clamp(11px, 2.6vw, 13px);
+  line-height: 1.7;
+  letter-spacing: 0.008em;
+  color: var(--ink);
+  text-align: center;
+  transform: rotate(-90deg);
+  width: var(--card-h);
+  padding: 0 28px;
+  pointer-events: none;
+}
+
+#info-text .info-heading {
+  display: block;
+  font-weight: 700;
+  font-size: clamp(13px, 3.2vw, 16px);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 1em;
+}
+
+#info-text .info-title {
+  display: block;
+  margin-bottom: 1em;
+}
+
+#info-text .info-foot {
+  display: block;
+  margin-top: 1em;
+}
+
+/* ── Ghost peek cards ── */
+.ghost {
+  position: fixed;
+  left: 50%;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: var(--radius);
+  background: var(--white);
+  pointer-events: none;
+  /* rotation set by JS at load */
+  transform-origin: center top;
+}
+.ghost-1 { filter: brightness(0.70); box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+.ghost-2 { filter: brightness(0.54); box-shadow: 0 6px 22px rgba(0,0,0,0.35); }
+.ghost-3 { filter: brightness(0.40); box-shadow: 0 5px 16px rgba(0,0,0,0.3); }
+.ghost-4 { filter: brightness(0.28); }
+.ghost-5 { filter: brightness(0.18); }
+.ghost-6 { filter: brightness(0.11); }
+
+/* ── Info button ── */
+#info-btn {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: transparent;
+  color: rgba(255,255,255,0.2);
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px; font-weight: 400;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: border-color 0.25s, color 0.25s;
+  -webkit-tap-highlight-color: transparent;
+}
+#info-btn:hover, #info-btn:focus-visible {
+  border-color: rgba(255,255,255,0.42);
+  color: rgba(255,255,255,0.48);
+  outline: none;
+}
+
+/* Counter */
+#counter {
+  position: fixed;
+  top: calc(var(--top-pad) + 10px);
+  right: max(env(safe-area-inset-right, 0px), 18px);
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 10px; font-weight: 400;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.18);
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* ── Animations ── */
+@keyframes flyUp {
+  0%   { transform: translateX(-50%) translateY(0) rotate(0deg); opacity: 1; }
+  18%  { transform: translateX(-50%) translateY(-18px) rotate(-0.8deg); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-130%) rotate(-3deg); opacity: 0; }
+}
+@keyframes riseUp {
+  0%   { transform: translateX(-50%) translateY(28px); opacity: 0.35; }
+  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+@keyframes idleFloat {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%       { transform: translateX(-50%) translateY(-3px); }
+}
+
+.fly-up  { animation: flyUp  0.42s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
+.rise-up { animation: riseUp 0.44s cubic-bezier(0.34, 1.4, 0.64, 1) forwards; }
+.idle    { animation: idleFloat 4s ease-in-out infinite; }
+
+.lifted .card-face {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.5) inset,
+    0 44px 88px rgba(0,0,0,0.68),
+    0 16px 38px rgba(0,0,0,0.38),
+    0 4px 10px rgba(0,0,0,0.2) !important;
+}
+
+/* Loading */
+#loading {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 10px; letter-spacing: 0.24em;
+  color: rgba(255,255,255,0.18);
+  transition: opacity 0.7s ease;
+}
+#loading.fade { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="loading">oblique strategies</div>
+
+<!-- Ghost stack (deepest first so shallower ones paint on top) -->
+<div class="ghost ghost-6" id="g6"></div>
+<div class="ghost ghost-5" id="g5"></div>
+<div class="ghost ghost-4" id="g4"></div>
+<div class="ghost ghost-3" id="g3"></div>
+<div class="ghost ghost-2" id="g2"></div>
+<div class="ghost ghost-1" id="g1"></div>
+
+<!-- Top card with flip inner -->
+<div id="top-card">
+  <div id="card-inner">
+    <div class="card-face" id="face-front">
+      <div id="strategy"></div>
+    </div>
+    <div class="card-face" id="face-back">
+      <div id="info-text">
+        <span class="info-heading">Oblique Strategies</span><span class="info-title">Over one hundred worthwhile dilemmas<br>by Brian Eno and Peter Schmidt.</span>
+        These cards evolved from our separate observations of the principles underlying what we were doing. Sometimes they were recognized in retrospect (intellect catching up with intuition), sometimes they were identified as they were happening, sometimes they were formulated.
+        <span class="info-foot">First published 1975, slightly revised edition 1978.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="counter"></div>
+<button id="info-btn" aria-label="About Oblique Strategies">?</button>
+
+<script>
+const STRATEGIES = [
+  "Abandon normal instruments","Accept advice","Accretion","A line has two sides",
+  "Allow an easement (an easement is the abandonment of a stricture)",
+  "Are there sections? Consider transitions",
+  "Ask people to work against their better judgement","Ask your body",
+  "Assemble some of the instruments in a group and treat the group",
+  "Be dirty","Breathe more deeply","Bridges — build — burn","Cascades",
+  "Change instrument roles","Change nothing and continue with immaculate consistency",
+  "Children's voices — speaking — singing","Cluster analysis",
+  "Consider different fading systems","Consult other sources — promising — unpromising",
+  "Convert a melodic element into a rhythmic element","Courage!","Cut a vital connection",
+  "Decorate, decorate","Define an area as 'safe' and use it as an anchor",
+  "Destroy — nothing — the most important thing","Discard an axiom",
+  "Disconnect from desire","Discover the recipes you are using and abandon them",
+  "Distorting time","Do nothing for as long as possible",
+  "Don't be afraid of things because they're easy to do",
+  "Don't be frightened of clichés","Don't be frightened to display your talents",
+  "Don't break the silence","Don't stress one thing more than another",
+  "Do something boring","Do the washing up","Do the words need changing?",
+  "Emphasize differences","Emphasize repetitions","Emphasize the flaws",
+  "Faced with a choice, do both",
+  "Feedback recordings into the influence of the composer","Fill every beat",
+  "Ghost echoes","Give the game away","Give way to your worst impulse",
+  "Go slowly all the way round the outside","Honour thy error as a hidden intention",
+  "How would you have done it?","Humanize something free of error","Idiot glee",
+  "Imagine the music as a moving chain or caterpillar",
+  "Imagine the music as a set of disconnected events",
+  "In total darkness, or in a very large room, very quietly",
+  "Into the impossible","Is it finished?","Is the style consistent?",
+  "It is quite possible (after all)","Just carry on",
+  "Left channel, right channel, centre channel","Listen to the quiet voice",
+  "Look at a very small object; look at its centre",
+  "Look at the order in which you do things","Lost in useless territory",
+  "Make a blank valuable by putting it in an exquisite frame",
+  "Make an exhaustive list of everything you might do and do the last thing on the list",
+  "Make a sudden, destructive unpredictable action; incorporate",
+  "Mechanize something idiosyncratic","Mute and continue",
+  "Not building a wall but making a brick","Nothing is a real instrument",
+  "Once the search is in progress, something will be found",
+  "Only one element of each kind","Overtly resist change","Put in earplugs",
+  "Question the heroic approach","Reconsider everything","Remove a restriction",
+  "Remove ambiguities and convert to specifics",
+  "Remove specifics and convert to ambiguities","Repetition is a form of change",
+  "Restate your intent","Retrace your steps","Reverse",
+  "Short circuit (example: a man eating peas with the idea that they will improve his virility shovels them straight into his lap)",
+  "Simple subtraction","Slow preparation, fast execution",
+  "State the problem in words as clearly as possible","Take a break",
+  "Take away the elements in order of apparent non-importance",
+  "The inconsistency principle","The most important thing is the thing most easily forgotten",
+  "Think — inside the work — outside the work","Tidy up","Trust in the you of now",
+  "Turn it upside down","Twist the spine","Use an old idea","Use an unacceptable colour",
+  "Use fewer notes","Use unqualified people","Water",
+  "What are you really thinking about just now?","What is the reality of the situation?",
+  "What mistakes did you make last time?","What would your closest friend do?",
+  "What wouldn't you do?","Work at a different speed","You are an engineer",
+  "You can only make one dot at a time","Your mistake was a hidden intention"
+];
+
+// ── Constants ────────────────────────────────────────────
+const PEEK       = 13;
+const NUM_GHOSTS = 6;
+
+// ── Elements ─────────────────────────────────────────────
+const topCard   = document.getElementById('top-card');
+const cardInner = document.getElementById('card-inner');
+const stratEl   = document.getElementById('strategy');
+const counterEl = document.getElementById('counter');
+const infoBtnEl = document.getElementById('info-btn');
+const ghosts    = [1,2,3,4,5,6].map(n => document.getElementById(`g${n}`));
+
+// ── Ghost rotations — fixed random angles, set once at load ──
+// Small angles (±2.5°) give a naturally placed, human feel
+const ghostAngles = ghosts.map(() => (Math.random() - 0.5) * 5);
+
+// ── State ────────────────────────────────────────────────
+let deck      = shuffle([...STRATEGIES]);
+let idx       = 0;
+let busy      = false;
+let showingInfo = false;
+let dragging  = false;
+let startY    = 0, dragY = 0, dragT = 0;
+
+function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
+
+// ── Layout: position ghosts below top card ───────────────
+function layout() {
+  const r        = topCard.getBoundingClientRect();
+  const cardBottom = r.bottom;
+  const screenH  = window.innerHeight;
+
+  ghosts.forEach((g, i) => {
+    const topPx = cardBottom + i * PEEK;
+    g.style.top = `${topPx}px`;
+    g.style.zIndex = NUM_GHOSTS - i;
+    // Apply fixed random rotation centred on the card's top edge (where it peeks)
+    g.style.transform = `translateX(-50%) rotate(${ghostAngles[i]}deg)`;
+  });
+
+  // Info button: centred in space below last ghost peek
+  const lastEdge = cardBottom + NUM_GHOSTS * PEEK;
+  const midY = lastEdge + (screenH - lastEdge) / 2;
+  infoBtnEl.style.top  = `${midY - 14}px`;
+  infoBtnEl.style.left = '50%';
+  infoBtnEl.style.transform = 'translateX(-50%)';
+}
+
+// ── Update strategy text & counter ──────────────────────
+function showCard(animate) {
+  stratEl.textContent = deck[idx % deck.length];
+  const rem = deck.length - (idx % deck.length);
+  counterEl.textContent = `${rem}\u2009/\u2009${deck.length}`;
+  if (animate) {
+    topCard.classList.remove('rise-up');
+    void topCard.offsetWidth;
+    topCard.classList.add('rise-up');
+    setTimeout(() => topCard.classList.remove('rise-up'), 460);
+  }
+}
+
+// ── Flip card to show info back ──────────────────────────
+function showInfo() {
+  if (busy) return;
+  showingInfo = true;
+  topCard.classList.remove('idle');
+  cardInner.classList.add('flipped');
+  // Hide counter while info is showing
+  counterEl.style.opacity = '0';
+}
+
+// ── Flip back to front (called on swipe-up when info showing) ─
+function hideInfo(thenAdvance) {
+  cardInner.classList.remove('flipped');
+  counterEl.style.opacity = '';
+  setTimeout(() => {
+    showingInfo = false;
+    if (thenAdvance) advance();
+  }, 540); // wait for flip to complete
+}
+
+// ── Advance to next card ─────────────────────────────────
+function advance() {
+  if (busy) return;
+  busy = true;
+  topCard.classList.remove('idle', 'lifted');
+  topCard.style.cssText = '';
+
+  topCard.classList.add('fly-up');
+
+  // Slide ghost stack up one step
+  const r = topCard.getBoundingClientRect();
+  ghosts.forEach((g, i) => {
+    g.style.transition = 'top 0.28s cubic-bezier(0.4, 0, 0.2, 1)';
+    g.style.top = i === 0
+      ? `${r.bottom - r.height}px`
+      : `${r.bottom + (i - 1) * PEEK}px`;
+  });
+
+  setTimeout(() => {
+    topCard.classList.remove('fly-up');
+    topCard.style.cssText = '';
+    idx++;
+    if (idx > 0 && idx % deck.length === 0) deck = shuffle([...STRATEGIES]);
+    showCard(true);
+    ghosts.forEach(g => { g.style.transition = ''; });
+    layout();
+    setTimeout(() => { topCard.classList.add('idle'); busy = false; }, 480);
+  }, 420);
+}
+
+// ── Drag ─────────────────────────────────────────────────
+topCard.addEventListener('mousedown',  pDown);
+topCard.addEventListener('touchstart', pDown, { passive: true });
+document.addEventListener('mousemove', pMove);
+document.addEventListener('touchmove', pMove, { passive: true });
+document.addEventListener('mouseup',   pUp);
+document.addEventListener('touchend',  pUp);
+
+function pDown(e) {
+  if (busy) return;
+  dragging = true; dragY = 0;
+  const pt = e.touches ? e.touches[0] : e;
+  startY = pt.clientY; dragT = Date.now();
+  topCard.classList.remove('idle');
+  topCard.classList.add('lifted');
+  topCard.style.transition = 'none';
+}
+function pMove(e) {
+  if (!dragging) return;
+  const pt = e.touches ? e.touches[0] : e;
+  dragY = pt.clientY - startY;
+  const dy  = Math.min(dragY, 20);
+  const tilt = dy * -0.014;
+  const fade = Math.max(0.25, 1 - Math.max(0, -dy) / 100);
+  topCard.style.transform = `translateX(-50%) translateY(${dy}px) rotate(${tilt}deg)`;
+  stratEl.style.opacity = fade;
+}
+function pUp() {
+  if (!dragging) return;
+  dragging = false;
+  topCard.classList.remove('lifted');
+  topCard.style.transition = '';
+  stratEl.style.opacity = '';
+  const vel = dragY / (Date.now() - dragT);
+  if (dragY < -55 || vel < -0.35) {
+    // Swiped up — if info card showing, flip back then advance; else advance
+    if (showingInfo) {
+      hideInfo(true);
+    } else {
+      advance();
+    }
+  } else {
+    topCard.style.transform = 'translateX(-50%)';
+    topCard.classList.add('idle');
+  }
+  dragY = 0;
+}
+
+// Tap — if showing info, flip back; else advance
+topCard.addEventListener('click', () => {
+  if (busy) return;
+  if (showingInfo) {
+    hideInfo(false);
+  } else if (Math.abs(dragY) < 6) {
+    advance();
+  }
+});
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp' || e.key === ' ' || e.key === 'ArrowRight') {
+    if (showingInfo) hideInfo(true); else advance();
+  }
+  if (e.key === 'i' || e.key === 'I') showInfo();
+});
+
+// ── Info button: flip the top card to reveal back ────────
+infoBtnEl.addEventListener('click', () => {
+  if (showingInfo) {
+    hideInfo(false);
+  } else {
+    showInfo();
+  }
+});
+
+// ── Boot ─────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  layout();
+  showCard(false);
+  window.addEventListener('resize', layout);
+
+  const loading = document.getElementById('loading');
+  setTimeout(() => {
+    loading.classList.add('fade');
+    setTimeout(() => loading.remove(), 750);
+    setTimeout(() => topCard.classList.add('idle'), 1000);
+  }, 450);
+});
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('/sw.js'));
+}
+</script>
+</body>
+</html>
