@@ -167,17 +167,16 @@ html, body {
 .ghost-5 { filter: brightness(0.32); }
 .ghost-6 { filter: brightness(0.18); }
 
-/* ── Info button ── */
+/* ── Info button — lives on the front card face ── */
 #info-btn {
-  position: fixed;
-  bottom: max(env(safe-area-inset-bottom, 0px) + 16px, 24px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 26px; height: 26px;
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  width: 22px; height: 22px;
   border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid rgba(0,0,0,0.15);
   background: transparent;
-  color: rgba(255,255,255,0.2);
+  color: rgba(0,0,0,0.22);
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 11px; font-weight: 400;
   display: flex; align-items: center; justify-content: center;
@@ -187,8 +186,8 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 #info-btn:hover, #info-btn:focus-visible {
-  border-color: rgba(255,255,255,0.42);
-  color: rgba(255,255,255,0.48);
+  border-color: rgba(0,0,0,0.38);
+  color: rgba(0,0,0,0.48);
   outline: none;
 }
 
@@ -282,6 +281,7 @@ html, body {
   <div id="card-inner">
     <div class="card-face" id="face-front">
       <div id="strategy"></div>
+      <button id="info-btn" aria-label="About Oblique Strategies">?</button>
     </div>
     <div class="card-face" id="face-back">
       <div id="info-text">
@@ -293,7 +293,6 @@ html, body {
 </div>
 
 <div id="counter"></div>
-<button id="info-btn" aria-label="About Oblique Strategies">?</button>
 
 <script>
 const STRATEGIES = [
@@ -418,7 +417,10 @@ function showCard(animate) {
     topCard.classList.remove('rise-up');
     void topCard.offsetWidth;
     topCard.classList.add('rise-up');
-    setTimeout(() => topCard.classList.remove('rise-up'), 460);
+    setTimeout(() => {
+      topCard.classList.remove('rise-up');
+      topCard.style.opacity = '';
+    }, 460);
   }
 }
 
@@ -466,9 +468,10 @@ function advance() {
     topCard.classList.remove('fly-up');
     topCard.style.transform = '';
     topCard.style.transition = '';
+    topCard.style.opacity = '0'; // bridge: hide the 1-frame snap before rise-up
     idx++;
     if (idx > 0 && idx % deck.length === 0) deck = shuffle([...STRATEGIES]);
-    showCard(true);
+    showCard(true); // rise-up animation overrides opacity during its run
     ghosts.forEach(g => { g.style.transition = ''; });
     layout();
     setTimeout(() => { topCard.classList.add('idle'); busy = false; }, 480);
@@ -541,13 +544,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'i' || e.key === 'I') showInfo();
 });
 
-// ── Info button: flip the top card to reveal back ────────
-infoBtnEl.addEventListener('click', () => {
-  if (showingInfo) {
-    hideInfo(false);
-  } else {
-    showInfo();
-  }
+// ── Info button: flip to back (lives on front face only) ─
+infoBtnEl.addEventListener('click', (e) => {
+  e.stopPropagation(); // don't bubble to topCard's advance() handler
+  if (!showingInfo) showInfo();
 });
 
 // ── Boot ─────────────────────────────────────────────────
