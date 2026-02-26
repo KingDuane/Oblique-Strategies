@@ -269,7 +269,7 @@ html, body {
 /* ── Desktop: card rotates to landscape ── */
 @media (min-width: 700px) {
   :root {
-    --card-w: min(48vw, 480px);
+    --card-w: min(58vw, 600px);
     --card-h: calc(var(--card-w) / 1.585);
     --radius: 20px;
   }
@@ -593,14 +593,71 @@ function pUp(e) {
   const velX = dragX / elapsed;
   if (dragAxis === 'h') {
     didDrag = true;
-    if (dragX < -55 || velX < -0.4)      advance();
-    else if (dragX > 55 || velX > 0.4)   undo();
+    if (dragX < -55 || velX < -0.4)      swipeOut('left');
+    else if (dragX > 55 || velX > 0.4)   swipeOut('right');
     else { topCard.style.transform = 'translateX(-50%)'; topCard.classList.add('idle'); }
   } else {
     topCard.style.transform = 'translateX(-50%)';
     if (dragAxis) topCard.classList.add('idle');
   }
   dragX = 0; dragY = 0; dragAxis = null;
+}
+
+// ── Swipe exit — continues from drag position, no snap-back ──────────
+// Uses a CSS transition (not an animation class) so the card flies off
+// from wherever the finger released it rather than jumping to centre first.
+function swipeOut(dir) {
+  if (busy) return;
+  const isUndo = dir === 'right';
+  if (isUndo && HISTORY.length === 0) {
+    topCard.style.transform = 'translateX(-50%)';
+    topCard.classList.add('idle');
+    return;
+  }
+  busy = true;
+
+  if (!isUndo) {
+    HISTORY.push({ text: stratEl.textContent, idx });
+    if (HISTORY.length > 10) HISTORY.shift();
+  }
+
+  const cardTop = parseFloat(topCard.style.top);
+  topCard.classList.remove('idle', 'lifted');
+
+  // Transition FROM current drag position TO off-screen
+  const endX = dir === 'left' ? 'calc(-50% - 110vw)' : 'calc(-50% + 110vw)';
+  const endRot = dir === 'left' ? -8 : 8;
+  topCard.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.3s ease';
+  topCard.style.transform = `translateX(${endX}) rotate(${endRot}deg)`;
+  topCard.style.opacity = '0';
+
+  if (!isUndo) {
+    const advanceOffsets = [0, ...STACK_OFFSETS.slice(0, NUM_GHOSTS - 1)];
+    ghosts.forEach((g, i) => {
+      g.style.transition = 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+      g.style.top = `${cardTop + advanceOffsets[i]}px`;
+    });
+  }
+
+  setTimeout(() => {
+    topCard.style.transition = '';
+    topCard.style.transform = '';
+    topCard.style.opacity = '';
+    if (isUndo) {
+      const prev = HISTORY.pop();
+      idx = prev.idx;
+      stratEl.textContent = prev.text;
+      const rem = deck.length - (idx % deck.length);
+      counterEl.textContent = `${rem}\u2009/\u2009${deck.length}`;
+    } else {
+      idx++;
+      if (idx > 0 && idx % deck.length === 0) deck = shuffle([...STRATEGIES]);
+      showCard();
+      ghosts.forEach(g => { g.style.transition = ''; });
+    }
+    layout();
+    enterCard(isUndo ? 'enter-left' : 'fade-in');
+  }, 300);
 }
 
 // Tap — advance (unless it was a drag that didn't meet threshold)
