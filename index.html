@@ -565,6 +565,7 @@ function advance(dir = 'left') {
   });
 
   setTimeout(() => {
+    topCard.style.opacity = '0'; // stay invisible while we swap content
     topCard.classList.remove(`exit-${dir}`);
     topCard.style.transform = '';
     topCard.style.transition = '';
@@ -589,6 +590,7 @@ function undo(dir = 'right') {
   topCard.classList.add(`exit-${dir}`);
 
   setTimeout(() => {
+    topCard.style.opacity = '0'; // stay invisible while we swap content
     topCard.classList.remove(`exit-${dir}`);
     topCard.style.transform = '';
     topCard.style.transition = '';
@@ -692,7 +694,7 @@ function swipeOut(dir) {
   setTimeout(() => {
     topCard.style.transition = '';
     topCard.style.transform = '';
-    topCard.style.opacity = '';
+    // opacity stays 0 — enterCard animates it back to 1
     if (isUndo) {
       const prev = HISTORY.pop();
       idx = prev.idx;
