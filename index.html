@@ -184,6 +184,23 @@ html, body {
   background: var(--white);
   pointer-events: none;
   transform-origin: center center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ghost-text {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  font-size: clamp(17px, 4.5vw, 18px);
+  line-height: 1.65;
+  letter-spacing: 0.005em;
+  color: var(--ink);
+  text-align: center;
+  transform: rotate(-90deg);
+  width: var(--card-h);
+  padding: 0 48px;
+  pointer-events: none;
 }
 .ghost-1 { filter: brightness(0.88); box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
 .ghost-2 { filter: brightness(0.76); box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
@@ -311,6 +328,12 @@ html, body {
   #info-text .info-heading {
     font-size: 13px;
   }
+  .ghost-text {
+    transform: none;
+    width: 100%;
+    padding: 0 44px;
+    font-size: 17px;
+  }
 }
 
 /* Loading */
@@ -333,12 +356,12 @@ html, body {
 <div id="loading"></div>
 
 <!-- Ghost stack (deepest first so shallower ones paint on top) -->
-<div class="ghost ghost-6" id="g6"></div>
-<div class="ghost ghost-5" id="g5"></div>
-<div class="ghost ghost-4" id="g4"></div>
-<div class="ghost ghost-3" id="g3"></div>
-<div class="ghost ghost-2" id="g2"></div>
-<div class="ghost ghost-1" id="g1"></div>
+<div class="ghost ghost-6" id="g6"><div class="ghost-text"></div></div>
+<div class="ghost ghost-5" id="g5"><div class="ghost-text"></div></div>
+<div class="ghost ghost-4" id="g4"><div class="ghost-text"></div></div>
+<div class="ghost ghost-3" id="g3"><div class="ghost-text"></div></div>
+<div class="ghost ghost-2" id="g2"><div class="ghost-text"></div></div>
+<div class="ghost ghost-1" id="g1"><div class="ghost-text"></div></div>
 
 <!-- Top card with flip inner -->
 <div id="top-card">
@@ -481,6 +504,10 @@ function showCard() {
   stratEl.textContent = deck[idx % deck.length];
   const rem = deck.length - (idx % deck.length);
   counterEl.textContent = `${rem}\u2009/\u2009${deck.length}`;
+  // Each ghost shows the next card in the deck behind it
+  ghosts.forEach((g, i) => {
+    g.querySelector('.ghost-text').textContent = deck[(idx + i + 1) % deck.length];
+  });
 }
 
 // ── Animate card entrance ────────────────────────────────
