@@ -572,8 +572,9 @@ function advance(dir = 'left') {
     idx++;
     if (idx > 0 && idx % deck.length === 0) deck = shuffle([...STRATEGIES]);
     showCard();
-    ghosts.forEach(g => { g.style.transition = ''; });
+    ghosts.forEach(g => { g.style.transition = ''; g.style.opacity = '0'; });
     layout();
+    ghosts.forEach(g => { g.style.opacity = ''; });
     enterCard('fade-in');
   }, 340);
 }
@@ -705,9 +706,10 @@ function swipeOut(dir) {
       idx++;
       if (idx > 0 && idx % deck.length === 0) deck = shuffle([...STRATEGIES]);
       showCard();
-      ghosts.forEach(g => { g.style.transition = ''; });
+      ghosts.forEach(g => { g.style.transition = ''; g.style.opacity = '0'; });
     }
     layout();
+    ghosts.forEach(g => { g.style.opacity = ''; });
     enterCard(isUndo ? 'enter-left' : 'fade-in');
   }, 300);
 }
