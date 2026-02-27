@@ -356,11 +356,11 @@ html, body {
 <div id="loading"></div>
 
 <!-- Ghost stack (deepest first so shallower ones paint on top) -->
-<div class="ghost ghost-6" id="g6"><div class="ghost-text"></div></div>
-<div class="ghost ghost-5" id="g5"><div class="ghost-text"></div></div>
-<div class="ghost ghost-4" id="g4"><div class="ghost-text"></div></div>
-<div class="ghost ghost-3" id="g3"><div class="ghost-text"></div></div>
-<div class="ghost ghost-2" id="g2"><div class="ghost-text"></div></div>
+<div class="ghost ghost-6" id="g6"></div>
+<div class="ghost ghost-5" id="g5"></div>
+<div class="ghost ghost-4" id="g4"></div>
+<div class="ghost ghost-3" id="g3"></div>
+<div class="ghost ghost-2" id="g2"></div>
 <div class="ghost ghost-1" id="g1"><div class="ghost-text"></div></div>
 
 <!-- Top card with flip inner -->
@@ -504,10 +504,8 @@ function showCard() {
   stratEl.textContent = deck[idx % deck.length];
   const rem = deck.length - (idx % deck.length);
   counterEl.textContent = `${rem}\u2009/\u2009${deck.length}`;
-  // Each ghost shows the next card in the deck behind it
-  ghosts.forEach((g, i) => {
-    g.querySelector('.ghost-text').textContent = deck[(idx + i + 1) % deck.length];
-  });
+  // Only ghost 1 (the card that rises during advance) shows the next card's text
+  document.querySelector('#g1 .ghost-text').textContent = deck[(idx + 1) % deck.length];
 }
 
 // ── Animate card entrance ────────────────────────────────
