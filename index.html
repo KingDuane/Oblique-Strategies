@@ -509,14 +509,17 @@ function showCard() {
 }
 
 // ── Animate card entrance ────────────────────────────────
+// Uses setTimeout rather than animationend — Safari doesn't reliably
+// fire animationend, which would leave busy=true and deadlock the app.
 function enterCard(cls) {
+  const dur = cls === 'fade-in' ? 220 : 320;
   topCard.style.opacity = '0';
   topCard.classList.add(cls);
-  topCard.addEventListener('animationend', () => {
+  setTimeout(() => {
     topCard.classList.remove(cls);
     topCard.style.opacity = '';
     setTimeout(() => { topCard.classList.add('idle'); busy = false; }, 80);
-  }, { once: true });
+  }, dur);
 }
 
 // ── Flip card to show info back ──────────────────────────
